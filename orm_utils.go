@@ -57,7 +57,7 @@ var TYPES = map[string]string{
 	"INT":       "int64",
 	"BIGINT":    "int64",
 	"DECIMAL":   "float64",
-	"VARCHAR":   "float64",
+	"VARCHAR":   "string",
 	"DATE":      "time.Time",
 	"TIMESTAMP": "time.Time",
 }

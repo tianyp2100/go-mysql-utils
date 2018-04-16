@@ -27,10 +27,11 @@ func NewDbClient(config DBConfig) *DBClient {
 }
 
 type DBConfig struct {
-	DbHost string
-	DbUser string
-	DbPass string
-	DbName string
+	DbHost      string
+	DbUser      string
+	DbPass      string
+	DbName      string
+	IsLocalTime bool
 }
 
 /*
@@ -42,6 +43,9 @@ func getDbConnString(config DBConfig) string {
 	builder.Append(config.DbUser).Append(":").Append(config.DbPass)
 	builder.Append("@tcp(").Append(config.DbHost).Append(":").Append("3306").Append(")/")
 	builder.Append(config.DbName).Append("?").Append("charset=utf8")
+	if config.IsLocalTime {
+		builder.Append("&parseTime=true&loc=Local")
+	}
 	return builder.ToString()
 }
 

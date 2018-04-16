@@ -5,6 +5,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/timespacegroup/go-utils"
 	"strings"
+	"fmt"
 )
 
 type DBClient struct {
@@ -164,6 +165,7 @@ func (client *DBClient) Exec(sql string, args []interface{}) int64 {
 	}
 	client.closeStmt(stmt)
 	var intResult int64
+	fmt.Println(result)
 	if tsgutils.NewString(sql).ContainsIgnoreCase("INSERT") {
 		intResult, err = result.LastInsertId()
 		tsgutils.CheckAndPrintError(MySQL+" exec and get last insert id failed", err)

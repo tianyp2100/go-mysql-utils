@@ -1,4 +1,4 @@
-package ts
+package tsgmysqlutils
 
 import (
 	"testing"

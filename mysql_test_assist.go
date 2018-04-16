@@ -1,4 +1,4 @@
-package ts
+package tsgmysqlutils
 
 func TestDbClient() *DBClient {
 	var dbConfig DBConfig

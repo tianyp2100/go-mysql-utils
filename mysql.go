@@ -1,4 +1,4 @@
-package ts
+package tsgmysqlutils
 
 import (
 	mysql "database/sql"
@@ -31,11 +31,6 @@ type DBConfig struct {
 	DbUser string
 	DbPass string
 	DbName string
-}
-
-type ORM interface {
-	Row2struct(row *mysql.Row)
-	Rows2struct(rows *mysql.Rows)
 }
 
 /*
@@ -87,7 +82,7 @@ func (client *DBClient) QueryMetaData(tabName string) *mysql.Rows {
 	return rows
 }
 
-func (client *DBClient) QueryRow(sql string, args []interface{}, orm ORM) {
+func (client *DBClient) QueryRow(sql string, args []interface{}, orm ORMBase) {
 	start := tsgutils.Millisecond()
 	row := client.forkQuery(sql, args...)
 	end := tsgutils.Millisecond()
@@ -98,7 +93,7 @@ func (client *DBClient) QueryRow(sql string, args []interface{}, orm ORM) {
 	orm.Row2struct(row)
 }
 
-func (client *DBClient) QueryList(sql string, args []interface{}, orm ORM) {
+func (client *DBClient) QueryList(sql string, args []interface{}, orm ORMBase) {
 	start := tsgutils.Millisecond()
 	rows := client.forkQueryList(sql, args...)
 	end := tsgutils.Millisecond()

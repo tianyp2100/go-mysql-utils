@@ -1,13 +1,22 @@
 package tsgmysqlutils
 
 /*
+ string utils
+ @author Tony Tian
+ @date 2018-04-16
+ @version 1.0.0
+*/
+
+/*
   Usage:
 	var dbConfig ts.DBConfig
 	dbConfig.DbHost = "127.0.0.1"
 	dbConfig.DbUser = "root"
 	dbConfig.DbPass = "123456"
+	dbConfig.IsLocalTime = true
 	dbConfig.DbName = "treasure"
-	var ormConfig ts.ORMConfig
+
+	var ormConfig tsgmysqlutils.ORMConfig
 	ormConfig.DbConfig = dbConfig
 	ormConfig.TabName = []string{"super_lotto", "super_lotto_bonus"}
 	tsgmysqlutils.GenerateORM(ormConfig)

@@ -1,5 +1,12 @@
 package tsgmysqlutils
 
+/*
+ string utils
+ @author Tony Tian
+ @date 2018-04-16
+ @version 1.0.0
+*/
+
 import (
 	"testing"
 	"errors"

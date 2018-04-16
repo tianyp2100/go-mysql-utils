@@ -31,6 +31,7 @@ type DBConfig struct {
 	DbUser      string
 	DbPass      string
 	DbName      string
+	// if false, local default UTC +0
 	IsLocalTime bool
 }
 

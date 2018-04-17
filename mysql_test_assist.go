@@ -13,6 +13,7 @@ func TestDbClient() *DBClient {
 	dbConfig.DbHost = "127.0.0.1"
 	dbConfig.DbUser = "root"
 	dbConfig.DbPass = "123456"
+	dbConfig.IsLocalTime = true
 	dbConfig.DbName = "test"
 
 	return NewDbClient(dbConfig)

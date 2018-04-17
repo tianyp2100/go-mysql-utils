@@ -46,7 +46,7 @@ func GenerateORM(config ORMConfig) {
 		builder.Append("type ").Append(structName).Append(" struct {\n")
 		for i := 0; i < len; i++ {
 			colName := cols[i]
-			colType := TYPES[types[i].DatabaseTypeName()]
+			colType := DBTypes[types[i].DatabaseTypeName()]
 			builder.Append("	").Append(tsgutils.FirstCaseToUpper(colName, true))
 			builder.Append(" ").Append(colType)
 			builder.Append(" `column:\"").Append(colName).Append("\"`")
@@ -59,14 +59,28 @@ func GenerateORM(config ORMConfig) {
 	}
 }
 
-var TYPES = map[string]string{
-	"TINYINT":   "int64",
-	"SMALLINT":  "int64",
-	"MEDIUMINT": "int64",
-	"INT":       "int64",
-	"BIGINT":    "int64",
-	"DECIMAL":   "float64",
-	"VARCHAR":   "string",
-	"DATE":      "time.Time",
-	"TIMESTAMP": "time.Time",
+var DBTypes = map[string]string{
+	"TINYINT":    "int64",
+	"SMALLINT":   "int64",
+	"MEDIUMINT":  "int64",
+	"INT":        "int64",
+	"BIGINT":     "int64",
+	"DECIMAL":    "float64",
+	"FLOAT":      "float64",
+	"DOUBLE":     "float64",
+	"NUMERIC":    "float64",
+	"CHAR":       "string",
+	"VARCHAR":    "string",
+	"BINARY":     "string",
+	"VARBINARY":  "string",
+	"BLOB":       "string",
+	"TINYTEXT":   "string",
+	"TEXT":       "string",
+	"MEDIUMTEXT": "string",
+	"LONGTEXT":   "string",
+	"ENUM":       "string",
+	"SET":        "string",
+	"DATE":       "time.Time",
+	"DATETIME":   "time.Time",
+	"TIMESTAMP":  "time.Time",
 }

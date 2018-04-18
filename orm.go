@@ -8,8 +8,9 @@ package tsgmysqlutils
 */
 
 /*
+  ORM: Object(struct) Relational Mapping
   Usage:
-	var dbConfig ts.DBConfig
+	var dbConfig tsgmysqlutils.DBConfig
 	dbConfig.DbHost = "127.0.0.1"
 	dbConfig.DbUser = "root"
 	dbConfig.DbPass = "123456"
@@ -23,12 +24,21 @@ package tsgmysqlutils
  */
 
 import (
+	mysql "database/sql"
 	"github.com/timespacegroup/go-utils"
 )
 
+/*
+  ORM configuration
+ */
 type ORMConfig struct {
 	DbConfig DBConfig
 	TabName  [] string
+}
+
+type ORMBase interface {
+	RowToStruct(row *mysql.Row)
+	RowsToStruct(rows *mysql.Rows)
 }
 
 func GenerateORM(config ORMConfig) {
@@ -41,21 +51,40 @@ func GenerateORM(config ORMConfig) {
 		types, err := rows.ColumnTypes()
 		tsgutils.CheckAndPrintError(MySQL+" Query table meta data column types failed", err)
 		len := len(cols)
-		var builder tsgutils.StringBuilder
+		structBuilder := tsgutils.NewStringBuilder()
+		// builder this table's struct
 		structName := tsgutils.FirstCaseToUpper(tabName, true)
-		builder.Append("type ").Append(structName).Append(" struct {\n")
+		structBuilder.Append("type ").Append(structName).Append(" struct {\n")
+		fieldNames := tsgutils.NewInterfaceBuilder()
 		for i := 0; i < len; i++ {
 			colName := cols[i]
 			colType := DBTypes[types[i].DatabaseTypeName()]
-			builder.Append("	").Append(tsgutils.FirstCaseToUpper(colName, true))
-			builder.Append(" ").Append(colType)
-			builder.Append(" `column:\"").Append(colName).Append("\"`")
-			builder.Append("\n")
+			fieldName := tsgutils.FirstCaseToUpper(colName, true)
+			fieldNames.Append(fieldName)
+			structBuilder.Append("	").Append(fieldName)
+			structBuilder.Append(" ").Append(colType)
+			structBuilder.Append(" `column:\"").Append(colName).Append("\"`")
+			structBuilder.Append("\n")
 		}
-		builder.Append("	").Append(structName).Append("s").Append(" [] ")
-		builder.Append(structName).Append("\n")
-		builder.Append("}\n")
-		println(builder.ToString())
+		structBuilder.Append("	").Append(structName).Append("s").Append(" [] ")
+		structBuilder.Append(structName).Append("\n")
+		structBuilder.Append("}\n")
+		println(structBuilder.ToString())
+
+		// builder this table's function
+		funcBuilder := tsgutils.NewStringBuilder()
+
+		aliasStructName := tsgutils.FirstCaseToUpper(tabName, false)
+		funcBuilder.Append("func (").Append(aliasStructName).Append(structName).Append(") RowToStruct(row *mysql.Row) {")
+		funcBuilder.Append("  builder := tsgutils.NewInterfaceBuilder()")
+
+		fieldNames
+		for i := range fieldNames.ToInterfaces() {
+			builder.Append("  builder.Append(&").Append(aliasStructName).Append(".").Append()
+		}
+
+		builder.Append("xxxxxsxxxxx")
+
 	}
 }
 

@@ -12,7 +12,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/timespacegroup/go-utils"
 	"strings"
-	"fmt"
 )
 
 type DBClient struct {
@@ -26,6 +25,9 @@ const (
 	ConnDBTimeoutMillisecond  = 2000
 )
 
+/*
+ Get a MySQL client
+ */
 func NewDbClient(config DBConfig) *DBClient {
 	var client DBClient
 	client.Config = config
@@ -66,8 +68,7 @@ func getConn(config DBConfig) *mysql.DB {
 	dbConnString := getDbConnString(config)
 	start := tsgutils.Millisecond()
 	db, err := mysql.Open(strings.ToLower(MySQL), dbConnString)
-	end := tsgutils.Millisecond()
-	consume := end - start
+	consume := tsgutils.Millisecond() - start
 	if consume > ConnDBTimeoutMillisecond {
 		PrintSlowConn(MySQL, config.DbHost, config.DbName, consume)
 	}
@@ -167,21 +168,17 @@ func (client *DBClient) Exec(sql string, args []interface{}) int64 {
 	tsgutils.CheckAndPrintError(MySQL+" exec sql failed", err)
 	PrintErrorSql(MySQL, err, sql, args)
 	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
-	client.closeStmt(stmt)
 	var intResult int64
-
-	fmt.Println(result.LastInsertId())
-	fmt.Println(result.RowsAffected())
-
+	var flag string
 	if tsgutils.NewString(sql).ContainsIgnoreCase("INSERT") {
 		intResult, err = result.LastInsertId()
-		tsgutils.CheckAndPrintError(MySQL+" exec and get last insert id failed", err)
-		PrintErrorSql(MySQL, err, sql, args...)
+		flag = "get last insert id"
 	} else {
 		intResult, err = result.RowsAffected()
-		tsgutils.CheckAndPrintError(MySQL+" exec and get rows affected failed", err)
-		PrintErrorSql(MySQL, err, sql, args...)
+		flag = "get rows affected"
 	}
+	tsgutils.CheckAndPrintError(MySQL+" exec and "+flag+" failed", err)
+	PrintErrorSql(MySQL, err, sql, args...)
 	client.closeStmt(stmt)
 	return intResult
 }

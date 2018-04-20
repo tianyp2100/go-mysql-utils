@@ -53,17 +53,17 @@ func TestCreateTable(t *testing.T) {
 
 	tabSql = tabSql.Clear()
 	tabSql.Append("CREATE TABLE `we_test_tab2` (")
-	tabSql.Append("`id` int unsigned NOT NULL AUTO_INCREMENT COMMENT 'The primary key id',")
-	tabSql.Append("`user_id` int unsigned NOT NULL COMMENT 'The user id',")
-	tabSql.Append("`area_code` smallint unsigned NOT NULL DEFAULT '0' COMMENT 'The user area code',")
-	tabSql.Append("`phone` bigint unsigned NOT NULL DEFAULT '0' COMMENT 'The user phone',")
-	tabSql.Append("`email` varchar(35) NOT NULL DEFAULT '' COMMENT 'The user email',")
-	tabSql.Append("`postcode` mediumint unsigned NOT NULL DEFAULT '0' COMMENT 'The user postcode',")
-	tabSql.Append("`administration_code` smallint unsigned NOT NULL DEFAULT '0' COMMENT 'The user administration code',")
-	tabSql.Append("`address` varchar(150) NOT NULL DEFAULT '' COMMENT 'The user address',")
+	tabSql.Append("`id` int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT 'The primary key id',")
+	tabSql.Append("`user_id` int(10) unsigned NOT NULL COMMENT 'The user id',")
+	tabSql.Append("`area_code` smallint(5) unsigned NOT NULL DEFAULT '0' COMMENT 'The user area code',")
+	tabSql.Append("`phone` bigint(20) unsigned NOT NULL DEFAULT '0' COMMENT 'The user phone',")
+	tabSql.Append("`email` varchar(35) COLLATE utf8_bin NOT NULL DEFAULT '' COMMENT 'The user email',")
+	tabSql.Append("`postcode` mediumint(8) unsigned NOT NULL DEFAULT '0' COMMENT 'The user postcode',")
+	tabSql.Append("`administration_code` mediumint(8) unsigned NOT NULL DEFAULT '0' COMMENT 'The user administration code',")
+	tabSql.Append("`address` varchar(150) COLLATE utf8_bin NOT NULL DEFAULT '' COMMENT 'The user address',")
 	tabSql.Append("`created_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'created time',")
 	tabSql.Append("`modified_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'modified time',")
-	tabSql.Append("`is_deleted` tinyint unsigned NOT NULL DEFAULT '0' COMMENT 'Logic to delete(0:normal 1:deleted)',")
+	tabSql.Append("`is_deleted` tinyint(3) unsigned NOT NULL DEFAULT '0' COMMENT 'Logic to delete(0:normal 1:deleted)',")
 	tabSql.Append("PRIMARY KEY (`id`)")
 	tabSql.Append(") ENGINE =InnoDB DEFAULT CHARSET = utf8 COLLATE = utf8_bin COMMENT ='test table2';")
 
@@ -114,17 +114,29 @@ func TestSelectSQL(t *testing.T) {
 	db := TestDbClient()
 
 	sql := "SELECT * FROM we_test_tab1 WHERE id = 1;"
-
-	result := db.Exec(sql, nil)
-	tsgutils.Stdout("Update result: rows affected: ", result)
+	weTestTab1 := new(WeTestTab1)
+	var orm ORMBase = weTestTab1
+	db.QueryRow(sql, nil, orm)
+	tsgutils.Stdout("Select row result: ", tsgutils.StructToJson(weTestTab1))
 }
 
 func TestSelectListSQL(t *testing.T) {
+	db := TestDbClient()
 
+	sql := "SELECT * FROM we_test_tab1 WHERE is_deleted <> 1;"
+	weTestTab1 := new(WeTestTab1)
+	var orm ORMBase = weTestTab1
+	db.QueryList(sql, nil, orm)
+	tsgutils.Stdout("Select row result: ", tsgutils.StructToJson(weTestTab1.WeTestTab1s))
 }
 
 func TestSelectAggregateSQL(t *testing.T) {
+	db := TestDbClient()
 
+	sql := "SELECT COUNT(*) FROM we_test_tab1 WHERE is_deleted <> 1;"
+
+	result := db.QueryAggregate(sql, nil)
+	tsgutils.Stdout("Select aggregate result: ", result)
 }
 
 func TestDeleteSQL(t *testing.T) {
@@ -134,4 +146,11 @@ func TestDeleteSQL(t *testing.T) {
 
 	result := db.Exec(sql, nil)
 	tsgutils.Stdout("Delete result: rows affected: ", result)
+}
+
+func TestDbTx()  {
+	db := TestDbClient()
+	tx := db.TxBegin()
+	sql1 := "INSERT INTO `we_test_tab1` (`name`, `gender`, `birthday`, `stature`, `weight`, `created_time`, `modified_time`, `is_deleted`) VALUES('tony', 2, '1991-01-01', 171.31, 41.11, '2018-04-19 13:20:09', '2018-04-19 13:20:09', 0);"
+	sql2 := ""
 }

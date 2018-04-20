@@ -1,6 +1,10 @@
 package tsgmysqlutils
 
-import "time"
+import (
+	"time"
+	db "database/sql"
+	"github.com/timespacegroup/go-utils"
+)
 
 /*
  string utils
@@ -50,6 +54,45 @@ type WeTestTab1 struct {
 	WeTestTab1s  [] WeTestTab1
 }
 
+func (weTestTab1 *WeTestTab1) RowToStruct(row *db.Row) {
+	builder := tsgutils.NewInterfaceBuilder()
+	builder.Append(&weTestTab1.Id)
+	builder.Append(&weTestTab1.Name)
+	builder.Append(&weTestTab1.Gender)
+	builder.Append(&weTestTab1.Birthday)
+	builder.Append(&weTestTab1.Stature)
+	builder.Append(&weTestTab1.Weight)
+	builder.Append(&weTestTab1.CreatedTime)
+	builder.Append(&weTestTab1.ModifiedTime)
+	builder.Append(&weTestTab1.IsDeleted)
+	err := row.Scan(builder.ToInterfaces()...)
+	tsgutils.CheckAndPrintError("MySQL query row scan error", err)
+}
+
+func (weTestTab1 *WeTestTab1) RowsToStruct(rows *db.Rows) {
+	var weTestTab1s [] WeTestTab1
+	builder := tsgutils.NewInterfaceBuilder()
+	for rows.Next() {
+		builder.Clear()
+		builder.Append(&weTestTab1.Id)
+		builder.Append(&weTestTab1.Name)
+		builder.Append(&weTestTab1.Gender)
+		builder.Append(&weTestTab1.Birthday)
+		builder.Append(&weTestTab1.Stature)
+		builder.Append(&weTestTab1.Weight)
+		builder.Append(&weTestTab1.CreatedTime)
+		builder.Append(&weTestTab1.ModifiedTime)
+		builder.Append(&weTestTab1.IsDeleted)
+		err := rows.Scan(builder.ToInterfaces()...)
+		tsgutils.CheckAndPrintError("MySQL query rows scan error", err)
+		weTestTab1s = append(weTestTab1s, *weTestTab1)
+	}
+	if rows != nil {
+		defer rows.Close()
+	}
+	weTestTab1.WeTestTab1s = weTestTab1s
+}
+
 type WeTestTab2 struct {
 	Id                 int64     `column:"id"`
 	UserId             int64     `column:"user_id"`
@@ -63,4 +106,47 @@ type WeTestTab2 struct {
 	ModifiedTime       time.Time `column:"modified_time"`
 	IsDeleted          int64     `column:"is_deleted"`
 	WeTestTab2s        [] WeTestTab2
+}
+
+func (weTestTab2 *WeTestTab2) RowToStruct(row *db.Row) {
+	builder := tsgutils.NewInterfaceBuilder()
+	builder.Append(&weTestTab2.Id)
+	builder.Append(&weTestTab2.UserId)
+	builder.Append(&weTestTab2.AreaCode)
+	builder.Append(&weTestTab2.Phone)
+	builder.Append(&weTestTab2.Email)
+	builder.Append(&weTestTab2.Postcode)
+	builder.Append(&weTestTab2.AdministrationCode)
+	builder.Append(&weTestTab2.Address)
+	builder.Append(&weTestTab2.CreatedTime)
+	builder.Append(&weTestTab2.ModifiedTime)
+	builder.Append(&weTestTab2.IsDeleted)
+	err := row.Scan(builder.ToInterfaces()...)
+	tsgutils.CheckAndPrintError("MySQL query row scan error", err)
+}
+
+func (weTestTab2 *WeTestTab2) RowsToStruct(rows *db.Rows) {
+	var weTestTab2s [] WeTestTab2
+	builder := tsgutils.NewInterfaceBuilder()
+	for rows.Next() {
+		builder.Clear()
+		builder.Append(&weTestTab2.Id)
+		builder.Append(&weTestTab2.UserId)
+		builder.Append(&weTestTab2.AreaCode)
+		builder.Append(&weTestTab2.Phone)
+		builder.Append(&weTestTab2.Email)
+		builder.Append(&weTestTab2.Postcode)
+		builder.Append(&weTestTab2.AdministrationCode)
+		builder.Append(&weTestTab2.Address)
+		builder.Append(&weTestTab2.CreatedTime)
+		builder.Append(&weTestTab2.ModifiedTime)
+		builder.Append(&weTestTab2.IsDeleted)
+		err := rows.Scan(builder.ToInterfaces()...)
+		tsgutils.CheckAndPrintError("MySQL query rows scan error", err)
+		weTestTab2s = append(weTestTab2s, *weTestTab2)
+	}
+	if rows != nil {
+		defer rows.Close()
+	}
+	weTestTab2.WeTestTab2s = weTestTab2s
 }

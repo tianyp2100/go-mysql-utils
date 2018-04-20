@@ -8,15 +8,15 @@ package tsgmysqlutils
 */
 
 import (
-	mysql "database/sql"
+	"strings"
+	db "database/sql"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/timespacegroup/go-utils"
-	"strings"
 )
 
 type DBClient struct {
 	Config DBConfig
-	Db     *mysql.DB
+	Db     *db.DB
 }
 
 const (
@@ -31,7 +31,7 @@ const (
 func NewDbClient(config DBConfig) *DBClient {
 	var client DBClient
 	client.Config = config
-	client.Db = getConn(config)
+	client.Db = GetConn(config)
 	return &client
 }
 
@@ -64,10 +64,10 @@ func getDbConnString(config DBConfig) string {
 /*
   Get a MySQL connection
  */
-func getConn(config DBConfig) *mysql.DB {
+func GetConn(config DBConfig) *db.DB {
 	dbConnString := getDbConnString(config)
 	start := tsgutils.Millisecond()
-	db, err := mysql.Open(strings.ToLower(MySQL), dbConnString)
+	db, err := db.Open(strings.ToLower(MySQL), dbConnString)
 	consume := tsgutils.Millisecond() - start
 	if consume > ConnDBTimeoutMillisecond {
 		PrintSlowConn(MySQL, config.DbHost, config.DbName, consume)
@@ -79,7 +79,7 @@ func getConn(config DBConfig) *mysql.DB {
 /*
   Get a MySQL statement
  */
-func (client *DBClient) getStmt(sql string) *mysql.Stmt {
+func (client *DBClient) GetStmt(sql string) *db.Stmt {
 	stmt, err := client.Db.Prepare(sql)
 	tsgutils.CheckAndPrintError(MySQL+" prepare stmt failed", err)
 	PrintErrorSql(MySQL, err, sql)
@@ -98,7 +98,7 @@ func (client *DBClient) CloseConn() {
 /*
   Close MySQL statement
  */
-func (client *DBClient) closeStmt(stmt *mysql.Stmt) {
+func (client *DBClient) CloseStmt(stmt *db.Stmt) {
 	if stmt != nil {
 		defer stmt.Close()
 	}
@@ -107,7 +107,7 @@ func (client *DBClient) closeStmt(stmt *mysql.Stmt) {
 /*
   Get MySQL database table metadata
  */
-func (client *DBClient) QueryMetaData(tabName string) *mysql.Rows {
+func (client *DBClient) QueryMetaData(tabName string) *db.Rows {
 	rows, err := client.Db.Query("SELECT * FROM " + tabName + " WHERE 1=1 LIMIT 1;")
 	tsgutils.CheckAndPrintError(MySQL+" Query table meta data failed", err)
 	return rows
@@ -120,7 +120,17 @@ func (client *DBClient) QueryRow(sql string, args []interface{}, orm ORMBase) {
 	start := tsgutils.Millisecond()
 	row := client.forkQuery(sql, args...)
 	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
-	orm.Row2struct(row)
+	orm.RowToStruct(row)
+}
+
+func (client *DBClient) QueryAggregate(sql string, args []interface{}) int64 {
+	start := tsgutils.Millisecond()
+	row := client.forkQuery(sql, args...)
+	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
+	var result int64
+	err := row.Scan(&result)
+	tsgutils.CheckAndPrintError("MySQL query aggregate scan error", err)
+	return result
 }
 
 /*
@@ -130,13 +140,13 @@ func (client *DBClient) QueryList(sql string, args []interface{}, orm ORMBase) {
 	start := tsgutils.Millisecond()
 	rows := client.forkQueryList(sql, args...)
 	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
-	orm.Rows2struct(rows)
+	orm.RowsToStruct(rows)
 }
 
 /*
   Begin the transaction
  */
-func (client *DBClient) TxBegin() *mysql.Tx {
+func (client *DBClient) TxBegin() *db.Tx {
 	tx, err := client.Db.Begin()
 	tsgutils.CheckAndPrintError(MySQL+" begin tx failed", err)
 	return tx
@@ -145,7 +155,7 @@ func (client *DBClient) TxBegin() *mysql.Tx {
 /*
   Commit the transaction
  */
-func (client *DBClient) TxCommit(tx *mysql.Tx) {
+func (client *DBClient) TxCommit(tx *db.Tx) {
 	err := tx.Commit()
 	tsgutils.CheckAndPrintError(MySQL+" commit tx failed", err)
 }
@@ -153,7 +163,7 @@ func (client *DBClient) TxCommit(tx *mysql.Tx) {
 /*
   Rollback the transaction
  */
-func (client *DBClient) TxRollback(tx *mysql.Tx) {
+func (client *DBClient) TxRollback(tx *db.Tx) {
 	err := tx.Rollback()
 	tsgutils.CheckAndPrintError(MySQL+" rollback tx failed", err)
 }
@@ -162,7 +172,7 @@ func (client *DBClient) TxRollback(tx *mysql.Tx) {
   Modify MySQL database table info or data
  */
 func (client *DBClient) Exec(sql string, args []interface{}) int64 {
-	stmt := client.getStmt(sql)
+	stmt := client.GetStmt(sql)
 	start := tsgutils.Millisecond()
 	result, err := stmt.Exec(args...)
 	tsgutils.CheckAndPrintError(MySQL+" exec sql failed", err)
@@ -179,25 +189,25 @@ func (client *DBClient) Exec(sql string, args []interface{}) int64 {
 	}
 	tsgutils.CheckAndPrintError(MySQL+" exec and "+flag+" failed", err)
 	PrintErrorSql(MySQL, err, sql, args...)
-	client.closeStmt(stmt)
+	client.CloseStmt(stmt)
 	return intResult
 }
 
-func (client *DBClient) forkQuery(sql string, args ...interface{}) *mysql.Row {
-	stmt := client.getStmt(sql)
-	var row *mysql.Row
+func (client *DBClient) forkQuery(sql string, args ...interface{}) *db.Row {
+	stmt := client.GetStmt(sql)
+	var row *db.Row
 	if len(args) > 0 {
 		row = stmt.QueryRow(args)
 	} else {
 		row = stmt.QueryRow()
 	}
-	client.closeStmt(stmt)
+	client.CloseStmt(stmt)
 	return row
 }
 
-func (client *DBClient) forkQueryList(sql string, args ...interface{}) *mysql.Rows {
-	stmt := client.getStmt(sql)
-	var rows *mysql.Rows
+func (client *DBClient) forkQueryList(sql string, args ...interface{}) *db.Rows {
+	stmt := client.GetStmt(sql)
+	var rows *db.Rows
 	var err error
 	if len(args) > 0 {
 		rows, err = stmt.Query(args)
@@ -206,7 +216,7 @@ func (client *DBClient) forkQueryList(sql string, args ...interface{}) *mysql.Ro
 	}
 	tsgutils.CheckAndPrintError(MySQL+" query rows list failed", err)
 	PrintErrorSql(MySQL, err, sql, args)
-	client.closeStmt(stmt)
+	client.CloseStmt(stmt)
 	return rows
 }
 

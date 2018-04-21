@@ -26,19 +26,19 @@ func PrintSlowConn(driverName, host, dbName string, consume int64) {
 	log.Println(builder.ToString())
 }
 
-func PrintErrorSql(driverName string, err error, sql string, args ...interface{}) {
+func PrintErrorSql(err error, sql string, args ...interface{}) {
 	if err != nil {
-		log.Println(driverName+" Error Sql: ", sql)
-		if len(args) > 0 {
-			log.Println(driverName+" Error Sql Args: ", args[0])
+		log.Println("Error Sql: ", sql)
+		if ArgsIsNotNil(args...) {
+			log.Print("Error Sql Args: ")
+			log.Println(args...)
 		}
 	}
 }
 
-func PrintSlowSql(driverName, host, dbName string, consume int64, sql string, args ...interface{}) {
+func PrintSlowSql(host, dbName string, consume int64, sql string, args ...interface{}) {
 	builder := tsgutils.NewStringBuilder()
-	builder.Append(driverName)
-	builder.Append(" Slow Sql: ")
+	builder.Append("Slow Sql: ")
 	builder.Append("Host: ")
 	builder.Append(host)
 	builder.Append(", DBName: ")
@@ -49,15 +49,14 @@ func PrintSlowSql(driverName, host, dbName string, consume int64, sql string, ar
 	log.Println(builder.ToString())
 
 	builder.Clear()
-	builder.Append(driverName)
-	builder.Append(" Slow Sql: ")
+	builder.Append("Slow Sql: ")
 	builder.Append(sql)
 	log.Println(builder.ToString())
 
-	if len(args) > 0 {
+	if ArgsIsNotNil(args...) {
 		builder.Clear()
-		builder.Append(driverName)
 		builder.Append(" Slow Sql Args: ")
-		log.Println(builder.ToString(), args[0])
+		log.Print(builder.ToString())
+		log.Println(args...)
 	}
 }

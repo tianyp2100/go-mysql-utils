@@ -1,7 +1,7 @@
 package tsgmysqlutils
 
 /*
- string utils
+ MySQL utils
  @author Tony Tian
  @date 2018-04-16
  @version 1.0.0
@@ -67,23 +67,25 @@ func getDbConnString(config DBConfig) string {
 func GetConn(config DBConfig) *db.DB {
 	dbConnString := getDbConnString(config)
 	start := tsgutils.Millisecond()
-	db, err := db.Open(strings.ToLower(MySQL), dbConnString)
+	mysql, err := db.Open(strings.ToLower(MySQL), dbConnString)
 	consume := tsgutils.Millisecond() - start
 	if consume > ConnDBTimeoutMillisecond {
 		PrintSlowConn(MySQL, config.DbHost, config.DbName, consume)
 	}
 	tsgutils.CheckAndPrintError(MySQL+" connection failed, db conn string: \n"+dbConnString, err)
-	return db
+	return mysql
 }
 
 /*
   Get a MySQL statement
  */
-func (client *DBClient) GetStmt(sql string) *db.Stmt {
-	stmt, err := client.Db.Prepare(sql)
-	tsgutils.CheckAndPrintError(MySQL+" prepare stmt failed", err)
-	PrintErrorSql(MySQL, err, sql)
-	return stmt
+func (client *DBClient) GetStmt(sql string) (stmt *db.Stmt, err error) {
+	stmt, err = client.Db.Prepare(sql)
+	if err != nil {
+		return nil, err
+	}
+	PrintErrorSql(err, sql, nil)
+	return stmt, nil
 }
 
 /*
@@ -105,59 +107,74 @@ func (client *DBClient) CloseStmt(stmt *db.Stmt) {
 }
 
 /*
-  Get MySQL database table metadata
+  Get database table a row data
  */
-func (client *DBClient) QueryMetaData(tabName string) *db.Rows {
-	rows, err := client.Db.Query("SELECT * FROM " + tabName + " WHERE 1=1 LIMIT 1;")
-	tsgutils.CheckAndPrintError(MySQL+" Query table meta data failed", err)
-	return rows
+func (client *DBClient) QueryRow(orm ORMBase, sql string, args ...interface{}) error {
+	start := tsgutils.Millisecond()
+	row, err := client.forkQuery(sql, args...)
+	if err != nil {
+		return err
+	}
+	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
+	err = orm.RowToStruct(row)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 /*
-  Get MySQL database table a row data
+ Database aggregate function, eg: SUM(*),COUNT(*) etc.
  */
-func (client *DBClient) QueryRow(sql string, args []interface{}, orm ORMBase) {
+func (client *DBClient) QueryAggregate(sql string, args ...interface{}) (aggregate int64, err error) {
 	start := tsgutils.Millisecond()
-	row := client.forkQuery(sql, args...)
-	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
-	orm.RowToStruct(row)
-}
-
-func (client *DBClient) QueryAggregate(sql string, args []interface{}) int64 {
-	start := tsgutils.Millisecond()
-	row := client.forkQuery(sql, args...)
+	row, err := client.forkQuery(sql, args...)
+	if err != nil {
+		return 0, nil
+	}
 	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
 	var result int64
-	err := row.Scan(&result)
-	tsgutils.CheckAndPrintError("MySQL query aggregate scan error", err)
-	return result
+	err = row.Scan(&result)
+	if err != nil {
+		return 0, nil
+	}
+	return result, nil
 }
 
 /*
-  Get MySQL database table multiple rows data
+  Get database table multiple rows data
  */
-func (client *DBClient) QueryList(sql string, args []interface{}, orm ORMBase) {
+func (client *DBClient) QueryList(orm ORMBase, sql string, args ...interface{}) error {
 	start := tsgutils.Millisecond()
-	rows := client.forkQueryList(sql, args...)
+	rows, err := client.forkQueryList(sql, args...)
+	if err != nil {
+		return err
+	}
 	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
-	orm.RowsToStruct(rows)
+	err = orm.RowsToStruct(rows)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 /*
   Begin the transaction
  */
-func (client *DBClient) TxBegin() *db.Tx {
-	tx, err := client.Db.Begin()
-	tsgutils.CheckAndPrintError(MySQL+" begin tx failed", err)
-	return tx
+func (client *DBClient) TxBegin() (tx *db.Tx, err error) {
+	return client.Db.Begin()
 }
 
 /*
   Commit the transaction
  */
-func (client *DBClient) TxCommit(tx *db.Tx) {
+func (client *DBClient) TxCommit(tx *db.Tx) bool {
 	err := tx.Commit()
-	tsgutils.CheckAndPrintError(MySQL+" commit tx failed", err)
+	if err != nil {
+		tsgutils.Println(MySQL+" tx commit failed", err)
+		return false
+	}
+	return true
 }
 
 /*
@@ -165,63 +182,100 @@ func (client *DBClient) TxCommit(tx *db.Tx) {
  */
 func (client *DBClient) TxRollback(tx *db.Tx) {
 	err := tx.Rollback()
-	tsgutils.CheckAndPrintError(MySQL+" rollback tx failed", err)
+	tsgutils.CheckAndPrintError(MySQL+" tx rollback failed", err)
 }
 
 /*
-  Modify MySQL database table info or data
+  Modify database table info or data
  */
-func (client *DBClient) Exec(sql string, args []interface{}) int64 {
-	stmt := client.GetStmt(sql)
+func (client *DBClient) Exec(sql string, args ...interface{}) (result int64, err error) {
+	stmt, err := client.GetStmt(sql)
+	if stmt == nil || err != nil {
+		return 0, err
+	}
 	start := tsgutils.Millisecond()
-	result, err := stmt.Exec(args...)
-	tsgutils.CheckAndPrintError(MySQL+" exec sql failed", err)
-	PrintErrorSql(MySQL, err, sql, args)
+	var results db.Result
+	if ArgsIsNotNil(args...) {
+		results, err = stmt.Exec(args...)
+	} else {
+		results, err = stmt.Exec()
+	}
+	client.CloseStmt(stmt)
+	PrintErrorSql(err, sql, args...)
 	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
 	var intResult int64
-	var flag string
 	if tsgutils.NewString(sql).ContainsIgnoreCase("INSERT") {
-		intResult, err = result.LastInsertId()
-		flag = "get last insert id"
+		intResult, err = results.LastInsertId()
 	} else {
-		intResult, err = result.RowsAffected()
-		flag = "get rows affected"
+		intResult, err = results.RowsAffected()
 	}
-	tsgutils.CheckAndPrintError(MySQL+" exec and "+flag+" failed", err)
-	PrintErrorSql(MySQL, err, sql, args...)
-	client.CloseStmt(stmt)
-	return intResult
+	PrintErrorSql(err, sql, args...)
+	return intResult, nil
 }
 
-func (client *DBClient) forkQuery(sql string, args ...interface{}) *db.Row {
-	stmt := client.GetStmt(sql)
-	var row *db.Row
-	if len(args) > 0 {
-		row = stmt.QueryRow(args)
+/*
+  Get database table metadata
+ */
+func (client *DBClient) QueryMetaData(tabName string) *db.Rows {
+	rows, err := client.Db.Query("SELECT * FROM " + tabName + " WHERE 1=1 LIMIT 1;")
+	tsgutils.CheckAndPrintError("Query '"+tabName+"' table meta data failed", err)
+	return rows
+}
+
+/*
+  Get database information
+ */
+func (client *DBClient) QueryDBInfo() *db.Rows {
+	sql := "SELECT tab.TABLE_NAME,tab.TABLE_COMMENT,col.COLUMN_NAME,col.COLUMN_TYPE,col.COLUMN_COMMENT " +
+		"FROM information_schema.TABLES tab,INFORMATION_SCHEMA.Columns col " +
+		"WHERE col.TABLE_NAME=tab.TABLE_NAME AND tab.`TABLE_SCHEMA` = ?"
+	rows, err := client.Db.Query(sql, client.Config.DbName)
+	tsgutils.CheckAndPrintError("Query '"+client.Config.DbName+"' db info failed", err)
+	return rows
+}
+
+func (client *DBClient) forkQuery(sql string, args ...interface{}) (row *db.Row, err error) {
+	stmt, err := client.GetStmt(sql)
+	if stmt == nil || err != nil {
+		return nil, err
+	}
+	if ArgsIsNotNil(args...) {
+		row = stmt.QueryRow(args...)
 	} else {
 		row = stmt.QueryRow()
 	}
 	client.CloseStmt(stmt)
-	return row
+	if err != nil {
+		return nil, err
+	}
+	PrintErrorSql(err, sql, args...)
+	return row, nil
 }
 
-func (client *DBClient) forkQueryList(sql string, args ...interface{}) *db.Rows {
-	stmt := client.GetStmt(sql)
-	var rows *db.Rows
-	var err error
-	if len(args) > 0 {
-		rows, err = stmt.Query(args)
+func (client *DBClient) forkQueryList(sql string, args ...interface{}) (rows *db.Rows, err error) {
+	stmt, err := client.GetStmt(sql)
+	if stmt == nil || err != nil {
+		return nil, err
+	}
+	if ArgsIsNotNil(args...) {
+		rows, err = stmt.Query(args...)
 	} else {
 		rows, err = stmt.Query()
 	}
-	tsgutils.CheckAndPrintError(MySQL+" query rows list failed", err)
-	PrintErrorSql(MySQL, err, sql, args)
 	client.CloseStmt(stmt)
-	return rows
+	if err != nil {
+		return nil, err
+	}
+	PrintErrorSql(err, sql, args...)
+	return rows, nil
+}
+
+func ArgsIsNotNil(args ...interface{}) bool {
+	return args[0] != nil
 }
 
 func (client *DBClient) slowSql(consume int64, sql string, args ...interface{}) {
 	if consume > SlowSqlTimeoutMillisecond {
-		PrintSlowSql(MySQL, client.Config.DbHost, client.Config.DbName, consume, sql, args...)
+		PrintSlowSql(client.Config.DbHost, client.Config.DbName, consume, sql, args...)
 	}
 }

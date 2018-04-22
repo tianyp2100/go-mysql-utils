@@ -5,6 +5,7 @@
 ---------------------------------------
 ### Installation
 ```
+$ go get -u github.com/timespacegroup/go-utils
 $ go get -u github.com/timespacegroup/go-mysql-utils
 ```
 ### Usage

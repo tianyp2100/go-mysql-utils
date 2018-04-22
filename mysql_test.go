@@ -39,7 +39,7 @@ func TestCreateTable(t *testing.T) {
 	tabSql.Append("UNIQUE KEY `name` (`name`)")
 	tabSql.Append(") ENGINE = InnoDB DEFAULT CHARSET = utf8 COLLATE= utf8_bin COMMENT = 'test table1';")
 
-	client.Exec(tabSql.ToString(), nil)
+	client.Exec(tabSql.ToString())
 
 	tabSql = tabSql.Clear()
 	tabSql.Append("CREATE TABLE `we_test_tab2` (")
@@ -57,7 +57,7 @@ func TestCreateTable(t *testing.T) {
 	tabSql.Append("PRIMARY KEY (`id`)")
 	tabSql.Append(") ENGINE =InnoDB DEFAULT CHARSET = utf8 COLLATE = utf8_bin COMMENT ='test table2';")
 
-	_, err := client.Exec(tabSql.ToString(), nil)
+	_, err := client.Exec(tabSql.ToString())
 
 	if err != nil {
 		tsgutils.Stdout("TestCreateTable failed", err)
@@ -127,7 +127,7 @@ func TestSelectSQL(t *testing.T) {
 	sql := "SELECT * FROM we_test_tab1 WHERE id = 1;"
 	weTestTab1 := new(WeTestTab1)
 	var orm ORMBase = weTestTab1
-	_, err := client.QueryRow(orm, sql, nil)
+	_, err := client.QueryRow(orm, sql)
 	if err != nil {
 		tsgutils.Stdout("Select row failed", err)
 	} else {
@@ -142,7 +142,7 @@ func TestSelectListSQL(t *testing.T) {
 	sql := "SELECT * FROM we_test_tab1 WHERE is_deleted <> 1;"
 	weTestTab1 := new(WeTestTab1)
 	var orm ORMBase = weTestTab1
-	_, err := client.QueryList(orm, sql, nil)
+	_, err := client.QueryList(orm, sql)
 	if err != nil {
 		tsgutils.Stdout("Select rows failed", err)
 	} else {
@@ -156,7 +156,7 @@ func TestSelectAggregateSQL(t *testing.T) {
 
 	sql := "SELECT COUNT(*) FROM we_test_tab1 WHERE is_deleted <> 1;"
 
-	result, err := client.QueryAggregate(sql, nil)
+	result, err := client.QueryAggregate(sql)
 	if err != nil {
 		tsgutils.Stdout("Select aggregate failed", err)
 	} else {
@@ -168,9 +168,9 @@ func TestSelectAggregateSQL(t *testing.T) {
 func TestDeleteSQL(t *testing.T) {
 	client := TestDbClient()
 
-	sql := "DELETE FROM we_test_tab1 WHERE id = 5;"
+	sql := "DELETE FROM we_test_tab1 WHERE id = ?;"
 
-	result, err := client.Exec(sql, nil)
+	result, err := client.Exec(sql, 5)
 	if err != nil {
 		tsgutils.Stdout("Delete failed", err)
 	} else {
@@ -188,25 +188,20 @@ func TestDbTxSuccessful(t *testing.T) {
 		tsgutils.CheckAndPrintError("TxBegin failed", err)
 		return
 	}
-
-	// error: packets.go:476: busy buffer
-	//sql := "SELECT * FROM we_test_tab1 WHERE id = 1 FOR UPDATE;"
-	//client.TxQueryRow(tx, nil, sql, nil)
-
-	id, err := client.TxExec(tx, sql1, nil)
+	id1, err := client.TxExec(tx, sql1)
 	if err != nil {
 		client.TxRollback(tx)
-		tsgutils.Stdout("TxRollback sql1", id, err)
+		tsgutils.Stdout("TxRollback sql1", id1, err)
 		return
 	}
-	result, err := client.TxExec(tx, sql2, id)
+	id2, err := client.TxExec(tx, sql2, id1)
 	if err != nil {
 		client.TxRollback(tx)
-		tsgutils.Stdout("TxRollback sql2", result, err)
+		tsgutils.Stdout("TxRollback sql2", id2, err)
 		return
 	}
 	if client.TxCommit(tx) {
-		tsgutils.Stdout("TestDbTx Successful: ", id, result)
+		tsgutils.Stdout("TestDbTx Successful: ", id1, id2)
 	} else {
 		tsgutils.Stdout("TestDbTx TxCommit failed")
 	}
@@ -214,7 +209,7 @@ func TestDbTxSuccessful(t *testing.T) {
 }
 
 func TestDbTxFailure(t *testing.T) {
-	// The `we_test_tab2` primary key conflict
+	// The `we_test_tab2` primary key conflict: Duplicate entry '1' for key 'PRIMARY'
 	client := TestDbClient()
 	sql1 := "INSERT INTO `we_test_tab1` (`name`, `gender`, `birthday`, `stature`, `weight`, `created_time`, `modified_time`, `is_deleted`) VALUES('tian', 2, '1991-01-01', 171.31, 41.11, '2018-04-19 13:20:09', '2018-04-19 13:20:09', 0);"
 	sql2 := "INSERT INTO `we_test_tab2` (`id`,`user_id`, `area_code`, `phone`, `email`, `postcode`, `administration_code`, `address`, `created_time`, `modified_time`, `is_deleted`) VALUES (1, ?, 86, 18212345678, 'tony@timespace.group', 100089, 110108, '北京市海淀区中关村', '2018-04-21 08:39:14', '2018-04-21 08:39:14', 0);"
@@ -223,20 +218,20 @@ func TestDbTxFailure(t *testing.T) {
 		tsgutils.CheckAndPrintError("TxBegin failed", err)
 		return
 	}
-	id, err := client.TxExec(tx, sql1, nil)
+	id1, err := client.TxExec(tx, sql1)
 	if err != nil {
 		client.TxRollback(tx)
-		tsgutils.Stdout("TxRollback sql1", id, err)
+		tsgutils.Stdout("TxRollback sql1", id1, err)
 		return
 	}
-	result, err := client.TxExec(tx, sql2, id)
+	id2, err := client.TxExec(tx, sql2, id1)
 	if err != nil {
 		client.TxRollback(tx)
-		tsgutils.Stdout("TxRollback sql2", result, err)
+		tsgutils.Stdout("TxRollback sql2", id2, err)
 		return
 	}
 	if client.TxCommit(tx) {
-		tsgutils.Stdout("TestDbTx Successful: ", id, result)
+		tsgutils.Stdout("TestDbTx Successful: ", id1, id2)
 	} else {
 		tsgutils.Stdout("TestDbTx TxCommit failed")
 	}
@@ -280,6 +275,7 @@ func TestGenerateORM_Insert_false(t *testing.T) {
 	} else {
 		tsgutils.Stdout("Update orm result: last insert id: ", result)
 	}
+	client.CloseConn()
 }
 
 func TestGenerateORM_BatchInsert_returnIds_false(t *testing.T) {
@@ -303,6 +299,7 @@ func TestGenerateORM_BatchInsert_returnIds_false(t *testing.T) {
 	} else {
 		tsgutils.Stdout("BatchInsert orm result: last insert id: ", tsgutils.StructToJson(result))
 	}
+	client.CloseConn()
 }
 
 func TestGenerateORM_BatchInsert_returnIds_true(t *testing.T) {
@@ -328,6 +325,7 @@ func TestGenerateORM_BatchInsert_returnIds_true(t *testing.T) {
 		tsgutils.Stdout("BatchInsert orm result: last insert id: ", tsgutils.StructToJson(result))
 		tsgutils.Stdout("BatchInsert orm result: inner last insert id: ", weTestTab1s.WeTestTab1s[0].Id)
 	}
+	client.CloseConn()
 }
 
 func TestGenerateORM_Update(t *testing.T) {
@@ -335,7 +333,7 @@ func TestGenerateORM_Update(t *testing.T) {
 	weTestTab1 := new(WeTestTab1)
 	var orm ORMBase = weTestTab1
 	sql := "SELECT * FROM we_test_tab1 WHERE id = 3;"
-	client.QueryRow(orm, sql, nil)
+	client.QueryRow(orm, sql)
 	weTestTab1.Name = "可可^_^"
 	result, err := weTestTab1.UpdateWeTestTab1ById(client)
 	if err != nil {
@@ -343,6 +341,7 @@ func TestGenerateORM_Update(t *testing.T) {
 	} else {
 		tsgutils.Stdout("Update orm result: rows affected: ", result)
 	}
+	client.CloseConn()
 }
 
 func TestGenerateORM_Delete(t *testing.T) {
@@ -355,6 +354,32 @@ func TestGenerateORM_Delete(t *testing.T) {
 	} else {
 		tsgutils.Stdout("Delete orm result: rows affected: ", result)
 	}
+	client.CloseConn()
+}
+
+func TestTxQuery1(t *testing.T) {
+	client := TestDbClient()
+	sql := "SELECT name FROM we_test_tab1 WHERE id = 1 FOR UPDATE;"
+	tx, _ := client.TxBegin()
+	stmt, _ := tx.Prepare(sql)
+	row := stmt.QueryRow()
+	var name string
+	row.Scan(&name)
+	tsgutils.Stdout(name)
+	client.TxCommit(tx)
+	client.CloseConn()
+}
+
+func TestTxQuery2(t *testing.T) {
+	client := TestDbClient()
+	sql := "SELECT name FROM we_test_tab1 WHERE id = ? FOR UPDATE;"
+	tx, _ := client.TxBegin()
+	row, _ := client.TxQueryRow(tx, nil, sql, 1)
+	var name string
+	row.Scan(&name)
+	tsgutils.Stdout(name)
+	client.TxCommit(tx)
+	client.CloseConn()
 }
 
 func TestPrintLog(t *testing.T) {

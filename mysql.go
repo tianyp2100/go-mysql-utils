@@ -21,7 +21,7 @@ import (
    @author Tony Tian
    @date 2018-04-16
    @version 1.0.0
- */
+*/
 
 type DBClient struct {
 	Config DBConfig
@@ -91,9 +91,9 @@ func GetConn(config DBConfig) *db.DB {
 func (client *DBClient) GetStmt(sql string) (stmt *db.Stmt, err error) {
 	stmt, err = client.Db.Prepare(sql)
 	if err != nil {
+		PrintErrorSql(err, sql, nil)
 		return nil, err
 	}
-	PrintErrorSql(err, sql, nil)
 	return stmt, nil
 }
 
@@ -102,7 +102,7 @@ func (client *DBClient) GetStmt(sql string) (stmt *db.Stmt, err error) {
 */
 func (client *DBClient) CloseConn() {
 	if client.Db != nil {
-		defer client.Db.Close()
+		client.Db.Close()
 	}
 }
 
@@ -111,7 +111,7 @@ func (client *DBClient) CloseConn() {
 */
 func (client *DBClient) CloseStmt(stmt *db.Stmt) {
 	if stmt != nil {
-		defer stmt.Close()
+		stmt.Close()
 	}
 }
 
@@ -121,34 +121,13 @@ func (client *DBClient) CloseStmt(stmt *db.Stmt) {
 func (client *DBClient) QueryRow(orm ORMBase, sql string, args ...interface{}) (row *db.Row, err error) {
 	start := tsgutils.Millisecond()
 	stmt, err := client.GetStmt(sql)
-	if err != nil {
+	if stmt == nil || err != nil {
 		return nil, err
 	}
 	row, err = client.forkQuery(stmt, orm, sql, args...)
 	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
+	defer client.CloseStmt(stmt)
 	return row, err
-}
-
-/*
- Database aggregate function, eg: SUM(*),COUNT(*) etc.
-*/
-func (client *DBClient) QueryAggregate(sql string, args ...interface{}) (aggregate int64, err error) {
-	start := tsgutils.Millisecond()
-	stmt, err := client.GetStmt(sql)
-	if err != nil {
-		return 0, err
-	}
-	row, err := client.forkQuery(stmt, nil, sql, args...)
-	if err != nil {
-		return 0, err
-	}
-	var result int64
-	err = row.Scan(&result)
-	if err != nil {
-		return 0, nil
-	}
-	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
-	return result, nil
 }
 
 /*
@@ -157,12 +136,29 @@ func (client *DBClient) QueryAggregate(sql string, args ...interface{}) (aggrega
 func (client *DBClient) QueryList(orm ORMBase, sql string, args ...interface{}) (rows *db.Rows, err error) {
 	start := tsgutils.Millisecond()
 	stmt, err := client.GetStmt(sql)
-	if err != nil {
+	if stmt == nil || err != nil {
 		return nil, err
 	}
 	rows, err = client.forkQueryList(stmt, orm, sql, args...)
 	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
+	defer client.CloseStmt(stmt)
 	return rows, err
+}
+
+/*
+ Database aggregate function, eg: SUM(*),COUNT(*) etc.
+*/
+func (client *DBClient) QueryAggregate(sql string, args ...interface{}) (aggregate int64, err error) {
+	row, err := client.QueryRow(nil, sql, args...)
+	if err != nil {
+		return 0, err
+	}
+	var result int64
+	err = row.Scan(&result)
+	if err != nil {
+		return 0, nil
+	}
+	return result, nil
 }
 
 /*
@@ -176,6 +172,7 @@ func (client *DBClient) Exec(sql string, args ...interface{}) (result int64, err
 	}
 	result, err = client.forkExec(stmt, sql, args...)
 	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
+	defer client.CloseStmt(stmt)
 	return result, err
 }
 
@@ -192,7 +189,7 @@ func (client *DBClient) TxBegin() (tx *db.Tx, err error) {
 func (client *DBClient) TxCommit(tx *db.Tx) bool {
 	err := tx.Commit()
 	if err != nil {
-		tsgutils.Println(MySQL+" tx commit failed", err)
+		tsgutils.CheckAndPrintError(MySQL+" tx commit failed", err)
 		return false
 	}
 	return true
@@ -203,33 +200,21 @@ func (client *DBClient) TxCommit(tx *db.Tx) bool {
 */
 func (client *DBClient) TxRollback(tx *db.Tx) {
 	err := tx.Rollback()
-	tsgutils.CheckAndPrintError(MySQL+" tx rollback failed", err)
+	if err != nil {
+		tsgutils.CheckAndPrintError(MySQL+" tx rollback failed", err)
+	}
 }
 
 /*
   Get MySQL statement,transaction
 */
-func (client *DBClient) TxStmt(tx *db.Tx, sql string) (stmt *db.Stmt, err error) {
+func (client *DBClient) GetTxStmt(tx *db.Tx, sql string) (stmt *db.Stmt, err error) {
 	stmt, err = tx.Prepare(sql)
 	if err != nil {
+		PrintErrorSql(err, sql, nil)
 		return nil, err
 	}
-	PrintErrorSql(err, sql, nil)
 	return stmt, nil
-}
-
-/*
-  Modify database table info or data,transaction
-*/
-func (client *DBClient) TxExec(tx *db.Tx, sql string, args ...interface{}) (result int64, err error) {
-	start := tsgutils.Millisecond()
-	stmt, err := client.TxStmt(tx, sql)
-	if stmt == nil || err != nil {
-		return 0, err
-	}
-	result, err = client.forkExec(stmt, sql, args...)
-	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
-	return result, err
 }
 
 /*
@@ -237,7 +222,7 @@ func (client *DBClient) TxExec(tx *db.Tx, sql string, args ...interface{}) (resu
 */
 func (client *DBClient) TxQueryRow(tx *db.Tx, orm ORMBase, sql string, args ...interface{}) (row *db.Row, err error) {
 	start := tsgutils.Millisecond()
-	stmt, err := client.TxStmt(tx, sql)
+	stmt, err := client.GetTxStmt(tx, sql)
 	if stmt == nil || err != nil {
 		return nil, err
 	}
@@ -247,15 +232,24 @@ func (client *DBClient) TxQueryRow(tx *db.Tx, orm ORMBase, sql string, args ...i
 }
 
 /*
+  Get database table multiple rows data,transaction
+*/
+func (client *DBClient) TxQueryList(tx *db.Tx, orm ORMBase, sql string, args ...interface{}) (rows *db.Rows, err error) {
+	start := tsgutils.Millisecond()
+	stmt, err := client.GetTxStmt(tx, sql)
+	if stmt == nil || err != nil {
+		return nil, err
+	}
+	rows, err = client.forkQueryList(stmt, orm, sql, args...)
+	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
+	return rows, err
+}
+
+/*
  Database aggregate function, eg: SUM(*),COUNT(*) etc,transaction
 */
 func (client *DBClient) TxQueryAggregate(tx *db.Tx, sql string, args ...interface{}) (aggregate int64, err error) {
-	start := tsgutils.Millisecond()
-	stmt, err := client.TxStmt(tx, sql)
-	if stmt == nil || err != nil {
-		return 0, err
-	}
-	row, err := client.forkQuery(stmt, nil, sql, args...)
+	row, err := client.TxQueryRow(tx, nil, sql, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -264,22 +258,22 @@ func (client *DBClient) TxQueryAggregate(tx *db.Tx, sql string, args ...interfac
 	if err != nil {
 		return 0, nil
 	}
-	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
 	return result, nil
 }
 
 /*
-  Get database table multiple rows data,transaction
+  Modify database table info or data,transaction
 */
-func (client *DBClient) TxQueryList(tx *db.Tx, orm ORMBase, sql string, args ...interface{}) (rows *db.Rows, err error) {
+func (client *DBClient) TxExec(tx *db.Tx, sql string, args ...interface{}) (result int64, err error) {
 	start := tsgutils.Millisecond()
-	stmt, err := client.TxStmt(tx, sql)
+	stmt, err := client.GetTxStmt(tx, sql)
 	if stmt == nil || err != nil {
-		return nil, err
+		return 0, err
 	}
-	rows, err = client.forkQueryList(stmt, orm, sql, args...)
+	result, err = client.forkExec(stmt, sql, args...)
 	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
-	return rows, err
+	defer client.CloseStmt(stmt)
+	return result, err
 }
 
 /*
@@ -304,72 +298,51 @@ func (client *DBClient) QueryDBInfo() *db.Rows {
 }
 
 func (client *DBClient) forkQuery(stmt *db.Stmt, orm ORMBase, sql string, args ...interface{}) (row *db.Row, err error) {
-	if ArgsIsNotNil(args...) {
-		row = stmt.QueryRow(args...)
-	} else {
-		row = stmt.QueryRow()
-	}
-	client.CloseStmt(stmt)
-	if err != nil {
-		return nil, err
-	}
-	PrintErrorSql(err, sql, args...)
+	row = stmt.QueryRow(args...)
 	if orm != nil {
 		err = orm.RowToStruct(row)
 		if err != nil {
+			PrintErrorSql(err, sql, args...)
 			return nil, err
 		}
 	}
-	defer client.CloseStmt(stmt)
 	return row, nil
 }
 
 func (client *DBClient) forkQueryList(stmt *db.Stmt, orm ORMBase, sql string, args ...interface{}) (rows *db.Rows, err error) {
-	start := tsgutils.Millisecond()
-	if ArgsIsNotNil(args...) {
-		rows, err = stmt.Query(args...)
-	} else {
-		rows, err = stmt.Query()
-	}
-	client.CloseStmt(stmt)
+	rows, err = stmt.Query(args...)
 	if err != nil {
+		PrintErrorSql(err, sql, args...)
 		return nil, err
 	}
-	PrintErrorSql(err, sql, args...)
-	client.slowSql(tsgutils.Millisecond()-start, sql, args...)
 	if orm != nil {
 		err = orm.RowsToStruct(rows)
 		if err != nil {
 			return nil, err
 		}
 	}
-	defer client.CloseStmt(stmt)
 	return rows, nil
 
 }
 
 func (client *DBClient) forkExec(stmt *db.Stmt, sql string, args ...interface{}) (result int64, err error) {
 	var results db.Result
-	if ArgsIsNotNil(args...) {
-		results, err = stmt.Exec(args...)
-	} else {
-		results, err = stmt.Exec()
+	results, err = stmt.Exec(args...)
+	if err != nil {
+		PrintErrorSql(err, sql, args...)
+		return 0, err
 	}
-	client.CloseStmt(stmt)
-	PrintErrorSql(err, sql, args...)
 	var intResult int64
 	if tsgutils.NewString(sql).ContainsIgnoreCase("INSERT") {
 		intResult, err = results.LastInsertId()
 	} else {
 		intResult, err = results.RowsAffected()
 	}
-	PrintErrorSql(err, sql, args...)
-	defer client.CloseStmt(stmt)
+	if err != nil {
+		PrintErrorSql(err, sql, args...)
+		return 0, err
+	}
 	return intResult, nil
-}
-
-func ArgsIsNotNil(args ...interface{}) bool {
-	return args[0] != nil
 }
 
 func (client *DBClient) slowSql(consume int64, sql string, args ...interface{}) {

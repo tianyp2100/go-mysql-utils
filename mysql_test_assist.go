@@ -8,11 +8,11 @@ package tsgmysqlutils
 */
 
 import (
-	db "database/sql"
-	"errors"
-	"github.com/timespacegroup/go-utils"
-	"reflect"
 	"time"
+	"errors"
+	"reflect"
+	db "database/sql"
+	"github.com/timespacegroup/go-utils"
 )
 
 func TestDbClient() *DBClient {

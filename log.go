@@ -29,10 +29,8 @@ func PrintSlowConn(driverName, host, dbName string, consume int64) {
 func PrintErrorSql(err error, sql string, args ...interface{}) {
 	if err != nil {
 		log.Println("Error Sql: ", sql)
-		if ArgsIsNotNil(args...) {
-			log.Print("Error Sql Args: ")
-			log.Println(args...)
-		}
+		log.Print("Error Sql Args: ")
+		log.Println(args...)
 	}
 }
 
@@ -53,9 +51,7 @@ func PrintSlowSql(host, dbName string, consume int64, sql string, args ...interf
 	builder.Append(sql)
 	log.Println(builder.ToString())
 
-	if ArgsIsNotNil(args...) {
-		builder.Clear()
-		log.Print("Slow Sql Args: ")
-		log.Println(args...)
-	}
+	builder.Clear()
+	log.Print("Slow Sql Args: ")
+	log.Println(args...)
 }

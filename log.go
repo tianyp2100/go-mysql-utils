@@ -1,7 +1,7 @@
 package tsgmysqlutils
 
 /*
- string utils
+ log utils
  @author Tony Tian
  @date 2018-04-16
  @version 1.0.0

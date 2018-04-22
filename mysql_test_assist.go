@@ -1,7 +1,7 @@
 package tsgmysqlutils
 
 /*
- string utils
+ MySQL utils test assist
  @author Tony Tian
  @date 2018-04-17
  @version 1.0.0

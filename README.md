@@ -34,4 +34,6 @@ func TestGenerateORM(t *testing.T) {
 	client.CloseConn()
 }
 ```
-##### More info see: mysql_test.go and mysql_test_assist.go
+##### More info see:
+###### See the client operation: mysql_test.go
+###### See the orm result: mysql_test_assist.go

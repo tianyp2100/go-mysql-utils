@@ -8,8 +8,8 @@ package tsgmysqlutils
 */
 
 import (
-	"log"
 	"github.com/timespacegroup/go-utils"
+	"log"
 )
 
 func PrintSlowConn(driverName, host, dbName string, consume int64) {
@@ -55,8 +55,7 @@ func PrintSlowSql(host, dbName string, consume int64, sql string, args ...interf
 
 	if ArgsIsNotNil(args...) {
 		builder.Clear()
-		builder.Append(" Slow Sql Args: ")
-		log.Print(builder.ToString())
+		log.Print("Slow Sql Args: ")
 		log.Println(args...)
 	}
 }

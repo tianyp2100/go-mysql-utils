@@ -8,9 +8,9 @@ package tsgmysqlutils
 */
 
 import (
-	"testing"
-	"github.com/timespacegroup/go-utils"
 	"errors"
+	"github.com/timespacegroup/go-utils"
+	"testing"
 	"time"
 )
 
@@ -18,7 +18,7 @@ import (
 	You must execute this SQL in your MySQL database:
 
 	CREATE DATABASE IF NOT EXISTS test DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
- */
+*/
 
 func TestCreateTable(t *testing.T) {
 
@@ -97,7 +97,7 @@ func TestInsertSQL(t *testing.T) {
 		params.Append(birthDay).Append(stature).Append(weight)
 		params.Append(curTime).Append(curTime).Append(0)
 
-		result, err := client.Exec(sql, params.ToInterfaces())
+		result, err := client.Exec(sql, params.ToInterfaces()...)
 		if err != nil {
 			tsgutils.Stdout("Insert failed", err)
 		} else {
@@ -127,7 +127,7 @@ func TestSelectSQL(t *testing.T) {
 	sql := "SELECT * FROM we_test_tab1 WHERE id = 1;"
 	weTestTab1 := new(WeTestTab1)
 	var orm ORMBase = weTestTab1
-	err := client.QueryRow(orm, sql, nil)
+	_, err := client.QueryRow(orm, sql, nil)
 	if err != nil {
 		tsgutils.Stdout("Select row failed", err)
 	} else {
@@ -142,26 +142,11 @@ func TestSelectListSQL(t *testing.T) {
 	sql := "SELECT * FROM we_test_tab1 WHERE is_deleted <> 1;"
 	weTestTab1 := new(WeTestTab1)
 	var orm ORMBase = weTestTab1
-	err := client.QueryList(orm, sql, nil)
+	_, err := client.QueryList(orm, sql, nil)
 	if err != nil {
 		tsgutils.Stdout("Select rows failed", err)
 	} else {
 		tsgutils.Stdout("Select rows result: ", tsgutils.StructToJson(weTestTab1.WeTestTab1s))
-	}
-	client.CloseConn()
-}
-
-func TestSelectLockSQL(t *testing.T) {
-	client := TestDbClient()
-
-	sql := "SELECT * FROM we_test_tab1 WHERE id = 1 FOR UPDATE;"
-	weTestTab1 := new(WeTestTab1)
-	var orm ORMBase = weTestTab1
-	err := client.QueryRow(orm, sql, nil)
-	if err != nil {
-		tsgutils.Stdout("Select row failed", err)
-	} else {
-		tsgutils.Stdout("Select row result: ", tsgutils.StructToJson(weTestTab1))
 	}
 	client.CloseConn()
 }
@@ -203,16 +188,21 @@ func TestDbTxSuccessful(t *testing.T) {
 		tsgutils.CheckAndPrintError("TxBegin failed", err)
 		return
 	}
-	id, err := client.Exec(sql1, nil)
+
+	// error: packets.go:476: busy buffer
+	//sql := "SELECT * FROM we_test_tab1 WHERE id = 1 FOR UPDATE;"
+	//client.TxQueryRow(tx, nil, sql, nil)
+
+	id, err := client.TxExec(tx, sql1, nil)
 	if err != nil {
 		client.TxRollback(tx)
-		tsgutils.Stdout("TxRollback", id, err)
+		tsgutils.Stdout("TxRollback sql1", id, err)
 		return
 	}
-	result, err := client.Exec(sql2, id)
+	result, err := client.TxExec(tx, sql2, id)
 	if err != nil {
 		client.TxRollback(tx)
-		tsgutils.Stdout("TxRollback", result, err)
+		tsgutils.Stdout("TxRollback sql2", result, err)
 		return
 	}
 	if client.TxCommit(tx) {
@@ -224,25 +214,25 @@ func TestDbTxSuccessful(t *testing.T) {
 }
 
 func TestDbTxFailure(t *testing.T) {
+	// The `we_test_tab2` primary key conflict
 	client := TestDbClient()
-	sql1 := "INSERT INTO `we_test_tab1` (`name`, `gender`, `birthday`, `stature`, `weight`, `created_time`, `modified_time`, `is_deleted`) VALUES('tony', 2, '1991-01-01', 171.31, 41.11, '2018-04-19 13:20:09', '2018-04-19 13:20:09', 0);"
-	sql2 := "INSERT INTO `we_test_tab2` (`user_id`, `area_code`, `phone`, `email`, `postcode`, `administration_code`, `address`, `created_time`, `modified_time`, `is_deleted`) VALUES (?, 86, 18212345678, 'tony@timespace.group', 100089, 110108, '北京市海淀区中关村', '2018-04-21 08:39:14', '2018-04-21 08:39:14', 0);"
-	defer client.CloseConn()
+	sql1 := "INSERT INTO `we_test_tab1` (`name`, `gender`, `birthday`, `stature`, `weight`, `created_time`, `modified_time`, `is_deleted`) VALUES('tian', 2, '1991-01-01', 171.31, 41.11, '2018-04-19 13:20:09', '2018-04-19 13:20:09', 0);"
+	sql2 := "INSERT INTO `we_test_tab2` (`id`,`user_id`, `area_code`, `phone`, `email`, `postcode`, `administration_code`, `address`, `created_time`, `modified_time`, `is_deleted`) VALUES (1, ?, 86, 18212345678, 'tony@timespace.group', 100089, 110108, '北京市海淀区中关村', '2018-04-21 08:39:14', '2018-04-21 08:39:14', 0);"
 	tx, err := client.TxBegin()
 	if err != nil {
 		tsgutils.CheckAndPrintError("TxBegin failed", err)
 		return
 	}
-	id, err := client.Exec(sql1, nil)
+	id, err := client.TxExec(tx, sql1, nil)
 	if err != nil {
 		client.TxRollback(tx)
-		tsgutils.Stdout("TxRollback", id, err)
+		tsgutils.Stdout("TxRollback sql1", id, err)
 		return
 	}
-	result, err := client.Exec(sql2, id)
+	result, err := client.TxExec(tx, sql2, id)
 	if err != nil {
 		client.TxRollback(tx)
-		tsgutils.Stdout("TxRollback", result, err)
+		tsgutils.Stdout("TxRollback sql2", result, err)
 		return
 	}
 	if client.TxCommit(tx) {
@@ -250,13 +240,14 @@ func TestDbTxFailure(t *testing.T) {
 	} else {
 		tsgutils.Stdout("TestDbTx TxCommit failed")
 	}
+	client.CloseConn()
 }
 
 func TestGenerateORM_Insert_true(t *testing.T) {
 	client := TestDbClient()
 	weTestTab1 := new(WeTestTab1)
-	weTestTab1.Id = 120
-	weTestTab1.Name = "Tom"
+	weTestTab1.Id = 7
+	weTestTab1.Name = "tina"
 	weTestTab1.Gender = 1
 	weTestTab1.Birthday = time.Now()
 	weTestTab1.Stature = 60.12
@@ -275,7 +266,7 @@ func TestGenerateORM_Insert_true(t *testing.T) {
 func TestGenerateORM_Insert_false(t *testing.T) {
 	client := TestDbClient()
 	weTestTab1 := new(WeTestTab1)
-	weTestTab1.Name = "Boss"
+	weTestTab1.Name = "boss"
 	weTestTab1.Gender = 1
 	weTestTab1.Birthday = time.Now()
 	weTestTab1.Stature = 60.23
@@ -294,7 +285,7 @@ func TestGenerateORM_Insert_false(t *testing.T) {
 func TestGenerateORM_BatchInsert_returnIds_false(t *testing.T) {
 	client := TestDbClient()
 	weTestTab1s := new(WeTestTab1)
-	for i := 128; i < 130; i++ {
+	for i := 0; i < 3; i++ {
 		var weTestTab1 WeTestTab1
 		weTestTab1.Name = tsgutils.NewString("Tony").AppendInt(i).ToString()
 		weTestTab1.Gender = 1
@@ -317,9 +308,9 @@ func TestGenerateORM_BatchInsert_returnIds_false(t *testing.T) {
 func TestGenerateORM_BatchInsert_returnIds_true(t *testing.T) {
 	client := TestDbClient()
 	weTestTab1s := new(WeTestTab1)
-	for i := 128; i < 130; i++ {
+	for i := 100; i < 103; i++ {
 		var weTestTab1 WeTestTab1
-		weTestTab1.Id = int64(i * 10)
+		weTestTab1.Id = int64(i)
 		weTestTab1.Name = tsgutils.NewString("Tony").AppendInt64(weTestTab1.Id).ToString()
 		weTestTab1.Gender = 1
 		weTestTab1.Birthday = time.Now()
@@ -345,7 +336,7 @@ func TestGenerateORM_Update(t *testing.T) {
 	var orm ORMBase = weTestTab1
 	sql := "SELECT * FROM we_test_tab1 WHERE id = 3;"
 	client.QueryRow(orm, sql, nil)
-	weTestTab1.Name = "可可^_^1"
+	weTestTab1.Name = "可可^_^"
 	result, err := weTestTab1.UpdateWeTestTab1ById(client)
 	if err != nil {
 		tsgutils.Stdout("Update failed", err)
@@ -357,7 +348,7 @@ func TestGenerateORM_Update(t *testing.T) {
 func TestGenerateORM_Delete(t *testing.T) {
 	client := TestDbClient()
 	weTestTab1 := new(WeTestTab1)
-	weTestTab1.Id = 3
+	weTestTab1.Id = 4
 	result, err := weTestTab1.DeleteWeTestTab1ById(client)
 	if err != nil {
 		tsgutils.Stdout("Delete failed", err)
@@ -374,8 +365,4 @@ func TestPrintLog(t *testing.T) {
 	PrintSlowSql("127.0.0.1", "mysql", 5000, sql, params)
 	err := errors.New("test sql error")
 	PrintErrorSql(err, sql, params)
-}
-
-func Test111(t *testing.T) {
-	tsgutils.Stdout()
 }

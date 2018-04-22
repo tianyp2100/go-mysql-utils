@@ -1,6 +1,3 @@
-# go-mysql-utils
-go language mysql utils.
-
 # Go MySQL utils
 
 ##### Two main functions: database operation and automatic ORM(object(struct) relational mapping).

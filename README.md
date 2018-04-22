@@ -12,22 +12,20 @@ $ go get -u github.com/timespacegroup/go-mysql-utils
 ##### 1. Create a new mysql client:
 ```
 func TestDbClient() *DBClient {
-	var dbConfig DBConfig
-
+	var dbConfig tsgmysqlutils.DBConfig
 	dbConfig.DbHost = "127.0.0.1"
 	dbConfig.DbUser = "root"
 	dbConfig.DbPass = "123456"
 	dbConfig.IsLocalTime = true
 	dbConfig.DbName = "test"
-
-	return NewDbClient(dbConfig)
+	return tsgmysqlutils.NewDbClient(dbConfig)
 }
 ```
 ##### 2. Create Object(struct) Relational Mapping:
 ```
 func TestGenerateORM(t *testing.T) {
 	client := TestDbClient()
-	orm := NewORMGenerator(client)
+	orm := tsgmysqlutils.NewORMGenerator(client)
 	orm.AddComment = true
 	tabNames := []string{"we_test_tab1", "we_test_tab2"}
 	orm.DefaultGenerator(tabNames)

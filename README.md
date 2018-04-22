@@ -10,4 +10,6 @@ $ go get -u github.com/timespacegroup/go-mysql-utils
 ### Usage
 
 ##### More info see: mysql_test.go and mysql_test_assist.go
-#### 
+##### 1. Create a new mysql client:
+```
+```

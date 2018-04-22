@@ -1,34 +1,32 @@
 package tsgmysqlutils
 
-/*
- string utils
- @author Tony Tian
- @date 2018-04-16
- @version 1.0.0
-*/
+import (
+	db "database/sql"
+	"github.com/timespacegroup/go-utils"
+)
 
 /*
   ORM: Object(struct) Relational Mapping
   Usage:
 	Paste from the console to the IDE, and format, ok.
 
-	var dbConfig tsgmysqlutils.DBConfig
+    var dbConfig tsgmysqlutils.DBConfig
 	dbConfig.DbHost = "127.0.0.1"
 	dbConfig.DbUser = "root"
 	dbConfig.DbPass = "123456"
 	dbConfig.IsLocalTime = true
-	dbConfig.DbName = "treasure"
+	dbConfig.DbName = "test"
+	client := tsgmysqlutils.NewDbClient(dbConfig)
 
-	var ormConfig tsgmysqlutils.ORMConfig
-	ormConfig.DbConfig = dbConfig
-	ormConfig.TabName = []string{"super_lotto", "super_lotto_bonus"}
-	tsgmysqlutils.GenerateORM(ormConfig)
+	orm := tsgmysqlutils.NewORMGenerator(client)
+	orm.AddComment = true
+	tabNames := []string{"we_test_tab1", "we_test_tab2"}
+	orm.DefaultGenerator(tabNames)
+
+   @author Tony Tian
+   @date 2018-04-16
+   @version 1.0.0
 */
-
-import (
-	db "database/sql"
-	"github.com/timespacegroup/go-utils"
-)
 
 /*
   ORM configuration
@@ -36,7 +34,7 @@ import (
 
 type ORMGenerator struct {
 	Client     *DBClient
-	addComment bool
+	AddComment bool
 }
 
 func NewORMGenerator(client *DBClient) *ORMGenerator {
@@ -60,7 +58,7 @@ func (orm *ORMGenerator) ORMBuilder(tabNames []string) {
 		for j := range ORMTabsCols {
 			ORMTab := ORMTabsCols[j]
 			if ORMTab.TName == tabName {
-				orm.buildORMStruct(tabName, ORMTab, orm.addComment)
+				orm.buildORMStruct(tabName, ORMTab, orm.AddComment)
 				orm.buildORMSqlSelect(tabName, ORMTab.TColumns)
 				orm.buildORMSqlInsert(tabName)
 				orm.buildORMSqlUpdate(tabName)

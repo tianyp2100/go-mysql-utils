@@ -70,7 +70,7 @@ func TestCreateTable(t *testing.T) {
 func TestGenerateORM(t *testing.T) {
 	client := TestDbClient()
 	orm := NewORMGenerator(client)
-	orm.addComment = true
+	orm.AddComment = true
 	tabNames := []string{"we_test_tab1", "we_test_tab2"}
 	orm.DefaultGenerator(tabNames)
 	client.CloseConn()

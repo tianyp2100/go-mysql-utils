@@ -1,18 +1,27 @@
 package tsgmysqlutils
 
-/*
- MySQL utils
- @author Tony Tian
- @date 2018-04-16
- @version 1.0.0
-*/
-
 import (
 	db "database/sql"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/timespacegroup/go-utils"
 	"strings"
 )
+
+/*
+ MySQL client
+  Usage:
+    var dbConfig tsgmysqlutils.DBConfig
+	dbConfig.DbHost = "127.0.0.1"
+	dbConfig.DbUser = "root"
+	dbConfig.DbPass = "123456"
+	dbConfig.IsLocalTime = true
+	dbConfig.DbName = "test"
+	client := tsgmysqlutils.NewDbClient(dbConfig)
+
+   @author Tony Tian
+   @date 2018-04-16
+   @version 1.0.0
+ */
 
 type DBClient struct {
 	Config DBConfig

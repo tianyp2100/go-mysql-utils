@@ -36,3 +36,4 @@ func TestGenerateORM(t *testing.T) {
 ##### More info see:
 ###### See the client operation: mysql_test.go
 ###### See the orm result: mysql_test_assist.go
+###### https://blog.csdn.net/typa01_kk/article/category/7629914
